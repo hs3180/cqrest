@@ -8,12 +8,21 @@
 #include "string"
 #include "cqp.h"
 #include "appmain.h" //应用AppID等信息，请正确填写，否则酷Q可能无法加载
+#include "rest.h"
 
 using namespace std;
+using namespace web;
+using namespace http;
+
 
 int ac = -1; //AuthCode 调用酷Q的方法时需要用到
 bool enabled = false;
+utility::string_t url = U("http://localhost:3000");
+web::http::experimental::listener::http_listener m_listener(url);
 
+void handle_get(web::http::http_request message) {
+	CQ_sendGroupMsg(ac, 518260718, "hello world");
+}
 
 /* 
 * 返回应用的ApiVer、Appid，打包后将不会调用
@@ -39,7 +48,8 @@ CQEVENT(int32_t, Initialize, 4)(int32_t AuthCode) {
 * 如非必要，不建议在这里加载窗口。（可以添加菜单，让用户手动打开窗口）
 */
 CQEVENT(int32_t, __eventStartup, 0)() {
-
+	m_listener.support(methods::GET, &handle_get);
+	m_listener.open().wait();
 	return 0;
 }
 
@@ -50,7 +60,7 @@ CQEVENT(int32_t, __eventStartup, 0)() {
 * 本函数调用完毕后，酷Q将很快关闭，请不要再通过线程等方式执行其他代码。
 */
 CQEVENT(int32_t, __eventExit, 0)() {
-
+	m_listener.close();
 	return 0;
 }
 
