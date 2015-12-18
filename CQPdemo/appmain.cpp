@@ -9,6 +9,8 @@
 #include "cqp.h"
 #include "appmain.h" //应用AppID等信息，请正确填写，否则酷Q可能无法加载
 #include "rest.h"
+#include <codecvt>
+#include <boost/locale.hpp>
 
 using namespace std;
 using namespace web;
@@ -19,9 +21,49 @@ int ac = -1; //AuthCode 调用酷Q的方法时需要用到
 bool enabled = false;
 utility::string_t url = U("http://localhost:3000");
 web::http::experimental::listener::http_listener m_listener(url);
+typedef std::codecvt_utf8<wchar_t> convert_type;
+std::wstring_convert<convert_type, wchar_t> converter;
 
 void handle_get(web::http::http_request message) {
-	CQ_sendGroupMsg(ac, 518260718, "hello world");
+	auto paths = uri::split_path(uri::decode(message.relative_uri().path()));
+	auto queries = uri::split_query(uri::decode(message.relative_uri().query()));
+	if (paths.empty()) {
+		message.reply(status_codes::OK, U("API works"));
+		return;
+	}
+	if (paths.size() > 1) {
+		message.reply(status_codes::Forbidden);
+		return;
+	}
+
+	utility::string_t target = paths[0];
+	if (target == U("group")) {
+		int64_t to;
+		utility::string_t msg;
+		if (queries.count(U("to")) > 0) {
+			to = std::stoll(queries[U("to")]);
+		}
+		else {
+			message.reply(status_codes::Forbidden);
+			return;
+		}
+		if (queries.count(U("msg")) > 0) {
+			msg = queries[U("msg")];
+		}
+		else {
+			message.reply(status_codes::Forbidden);
+			return;
+		}
+		auto msg_bytes = boost::locale::conv::between(converter.to_bytes(msg), "GBK", "UTF8");
+		CQ_sendGroupMsg(ac, to, msg_bytes.c_str());
+		message.reply(status_codes::OK);
+		return;
+	}
+	else {
+		message.reply(status_codes::Forbidden);
+		return;
+	}
+	
 }
 
 /* 
